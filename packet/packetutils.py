@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 
 def Checksum(packet):
     chksum = 0
@@ -11,73 +12,94 @@ def HasValidChecksum(packet):
     return Checksum(packet[:-1]) == chksum
 
 
-def FindValidPacket(packet, header, length=None, lengthIndex=None, lengthOffset=0, ChksumIncludeHeader=True):
+def FindValidPacket(buffer, header, length=None, lengthIndex=None,
+        lengthOffset=0, ChksumIncludeHeader=True):
+    """Looking for valid data packet in the given data.
+
+    Args:
+        buffer (bytes): The data.
+        header (bytes): The header of the packet.
+        length (int): The length of the packet.
+            User could pass this argument to define the packet length if
+            it's consistent for all the packet. If the length of the packet
+            is inconsistent and defined by the data packet itself (through
+            some certain field in the packet), user could defines it by 
+            the lengthIndex argument. Notice that either length or 
+            lengthIndex must be passed. If both were passed, the length
+            will override the lengthIndex.
+        lengthIndex (int): The index of the length information in the packet.
+            User could pass this argument to define the packet length if 
+            the length information is self-contained by the packet.
+        lengthOffset (int): The offset which will be added to the packet length.
+            Sometimes the length information provided by the packet itself
+            will be different from the real packet length. For instance, the
+            length information may not include the header and checksum.
+            Since this function requires total length to be working, user
+            could use this argument to increase the length information 
+            provided by the packet inself. Notice this won't work when the
+            length information is provided by the length argument.
+        ChksumIncludeHeader (bool): Define if the header is included in 
+            checksum calculation.
+            Sometimes the calculation of checksum excludes the header. User
+            could use this argument to defined this.
+
+    Returns:
+        checkedPacketList (list of bytes): Valid packet list.
+        remainedPacket (bytes): remained data byte
+        """
     if length == None and lengthIndex == None:
         raise ValueError("Either length or lengthIndex must be set")
     if len(header) == 0:
         raise ValueError("header must be set")
+    bufferLength = len(buffer)
 
     checkedPacketList = list()
-    remainedPacket = b""
-    packetLength = 0
+    headerIndexList = list()
+    remainedPacket = bytes()
+
+    foundLength = 0
+    headerIndex = 0
     while True:
-        # Find the first header in packet
-        index = packet.find(header[0])
-        if index < 0:
+        # Locate the first header in buffer
+        headerIndex = buffer.find(header[0], headerIndex)
+        if headerIndex < 0:
             break
-        print("Found first header index: {}".format(index))
-        # Remove everything in front of the first header
-        packet = packet[index:]
-        # Test the remained packet length
-        if length is not None:
-            if len(packet) < length+lengthOffset:
-                remainedPacket += packet
-                break
-            packetLength = length + lengthOffset
-        else:
-            if (len(packet) < lengthIndex+1) or \
-                    (len(packet) < packet[lengthIndex]+lengthOffset):
-                remainedPacket += packet
-                break
-            packetLength = packet[lengthIndex] + lengthOffset
-        print("Packet length: {}".format(packetLength))
-        # Compare the rest of the header
-        if packet.startswith(header) is False:
-            # Skip the first found header
-            packet = packet[1:]
+        # Make sure the length of buffer is able to do the comparison
+        if (bufferLength - headerIndex) < len(header):
+            remainedPacket += buffer[headerIndex:]
+            break
+        # Find the rest of the header
+        if buffer[headerIndex:].startswith(header) is False:
+            # Skip to the next
+            headerIndex += 1
             continue
-        print("Found rest of the header")
+        # Test the remained buffer length
+        if length is not None:
+            if (bufferLength - headerIndex) < length:
+                remainedPacket += buffer[headerIndex:]
+                break
+            foundLength = length
+        else:
+            # remained buffer length is less than the lengthIndex 
+            if (bufferLength - headerIndex) < (lengthIndex + 1):
+                remainedPacket += buffer[headerIndex:]
+                break
+            if (bufferLength - headerIndex) < (buffer[headerIndex+lengthIndex]+lengthOffset):
+                remainedPacket += buffer[headerIndex:]
+                break
+            foundLength = buffer[headerIndex+lengthIndex]+lengthOffset
         # Check the checksum
         if ChksumIncludeHeader:
-            if HasValidChecksum(packet[:packetLength]) is False:
-                packet = packet[1:]
+            if HasValidChecksum(buffer[headerIndex:headerIndex+foundLength]) is False:
+                headerIndex += 1
                 continue
         else:
-            if HasValidChecksum(packet[len(header):packetLength]) is False:
-                packet = packet[1:]
+            if HasValidChecksum(buffer[headerIndex+len(header):headerIndex+foundLength]) is False:
+                headerIndex += 1
                 continue
-        print("Checksum validation passed")
         # Pass every examination
-        checkedPacketList.append(packet[:packetLength])
-        packet = packet[packetLength:]
-        print("Current checkedPacketList:")
-        print(checkedPacketList, "\n")
+        checkedPacketList.append(buffer[headerIndex:headerIndex+foundLength])
+        headerIndexList.append(headerIndex)
+        headerIndex += foundLength
     
-    print(" Final checkedPacketList:")
-    print(checkedPacketList)
-    print(" Remained packet:")
-    print(remainedPacket)
     return (checkedPacketList, remainedPacket)
-
-
-
-
-
-
-
-
-
-
-
-
-
