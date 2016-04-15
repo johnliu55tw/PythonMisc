@@ -12,7 +12,7 @@ def HasValidChecksum(packet):
     return Checksum(packet[:-1]) == chksum
 
 
-def FindValidPacket(buffer, header, length=None, lengthIndex=None,
+def FindValidPackets(buffer, header, length=None, lengthIndex=None,
         lengthOffset=0, ChksumIncludeHeader=True):
     """Looking for valid data packet in the given data.
 
