@@ -2,11 +2,21 @@
 
 from timeit import timeit
 
+SETUP_LOCK = """
+from os import urandom
+from base import BoxStatus
+from boxrepo import DictBoxRepoWithLock as BoxRepo
+boxRepo = BoxRepo()
+boxRepo.create(BoxStatus(boxID=b"012"))
+for i in range(99):
+    boxRepo.create(BoxStatus(boxID=urandom(3)))
+"""
+
 SETUP = """
 from os import urandom
 from base import BoxStatus
-from boxrepo import DictBoxRepo
-boxRepo = DictBoxRepo()
+from boxrepo import DictBoxRepo as BoxRepo
+boxRepo = BoxRepo()
 boxRepo.create(BoxStatus(boxID=b"012"))
 for i in range(99):
     boxRepo.create(BoxStatus(boxID=urandom(3)))
@@ -25,11 +35,23 @@ boxRepo.delete(boxID=b"012")
 """
 
 if __name__ == "__main__":
+    
+    testNumber = 100000
+    print("Test Number = {}".format(testNumber))
     print("Test read time")
-    print(timeit(stmt=READ_STMT, setup=SETUP, number=10000))
+    print("Without Lock:")
+    print(timeit(stmt=READ_STMT, setup=SETUP, number=testNumber))
+    print("With Lock:")
+    print(timeit(stmt=READ_STMT, setup=SETUP_LOCK, number=testNumber))
 
     print("Test update time")
-    print(timeit(stmt=READ_STMT, setup=SETUP, number=10000))
+    print("Without Lock:")
+    print(timeit(stmt=READ_STMT, setup=SETUP, number=testNumber))
+    print("With Lock:")
+    print(timeit(stmt=READ_STMT, setup=SETUP_LOCK, number=testNumber))
 
     print("Test delete time")
-    print(timeit(stmt=READ_STMT, setup=SETUP, number=10000))
+    print("Without Lock:")
+    print(timeit(stmt=READ_STMT, setup=SETUP, number=testNumber))
+    print("With Lock:")
+    print(timeit(stmt=READ_STMT, setup=SETUP_LOCK, number=testNumber))

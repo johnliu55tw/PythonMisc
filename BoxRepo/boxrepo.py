@@ -3,6 +3,7 @@
 import sqlite3
 from base import BoxStatus
 from base import BoxRepoBase
+from threading import RLock
 
 class DictBoxRepo(BoxRepoBase):
 
@@ -56,12 +57,80 @@ class DictBoxRepo(BoxRepoBase):
                 self.db[boxID].inUse = inUse
         except KeyError:
             raise ValueError("boxID not exist")
-    
+        
     def delete(self, boxID):
         try:
             del self.db[boxID]
         except KeyError:
             raise ValueError("boxID not exist")
+
+
+class DictBoxRepoWithLock(BoxRepoBase):
+
+    def __init__(self, lock=None):
+        self.db = dict()
+        if lock is None:
+            lock = RLock()
+        self.lock = lock
+
+    def __contains__(self, boxID):
+        with self.lock:
+            return boxID in self.db
+
+    def create(self, boxStatus):
+        with self.lock:
+            if boxStatus.boxID in self:
+                raise ValueError("boxID already exist")
+
+            self.db[boxStatus.boxID] = boxStatus
+
+    def read(self, *, boxID=None, connected=None, inUse=None):
+        with self.lock:
+            ret = list()
+            if boxID is not None:
+                try:
+                    ret.append(self.db[boxID])
+                    return ret
+                except KeyError:
+                    raise ValueError("boxID not exist")
+
+            else:
+                if connected is None and inUse is None:
+                    for boxStatus in self.db.values():
+                        ret.append(boxStatus)
+                    return ret
+                
+                else:
+                    for boxStatus in self.db.values():
+                        flag = True
+
+                        if connected is not None:
+                            flag = flag and (connected == boxStatus.connected)
+                        if inUse is not None:
+                            flag = flag and (inUse == boxStatus.inUse)
+
+                        if flag is True:
+                            ret.append(boxStatus)
+
+                    return ret
+
+    def update(self, *, boxID, connected=None, inUse=None):
+        with self.lock:
+            try:
+                if connected is not None:
+                    self.db[boxID].connected = connected
+
+                if inUse is not None:
+                    self.db[boxID].inUse = inUse
+            except KeyError:
+                raise ValueError("boxID not exist")
+        
+    def delete(self, boxID):
+        with self.lock:
+            try:
+                del self.db[boxID]
+            except KeyError:
+                raise ValueError("boxID not exist")
 
 
 class SqliteBoxRepo(BoxRepoBase):
