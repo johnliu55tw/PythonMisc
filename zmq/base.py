@@ -12,7 +12,6 @@ import zmq
 class ZMQEventProcess(Process):
 
     def __init__(self):
-        print(id(self))
         super().__init__()
         self.ctx = None
         self.loop = None
@@ -28,6 +27,7 @@ class ZMQEventProcess(Process):
     def _contextSetup(self):
         self.ctx = zmq.Context()
         self.loop = ioloop.ZMQIOLoop()
+        self.loop.make_current()
         self.lastRecvTime = self.loop.time()
     
     # The fucntion wrapper to wrap the stream callback function,
@@ -100,7 +100,9 @@ class ZMQEventProcess(Process):
     def socket(self, address, type, *,
             sockopt=dict(),
             bind=False):
+
         sock = self.ctx.socket(type)
+        sock.setsockopt(zmq.LINGER, 0)
 
         for opt, value in sockopt.items():
             sock.setsockopt(opt, value)
@@ -144,15 +146,13 @@ class ZMQEventProcess(Process):
     """
     def run(self):
 
-        self.ctx = zmq.Context()
-        self.loop = ioloop.ZMQIOLoop()
-        self.lastRecvTime = self.loop.time()
-
+        self._contextSetup()
         self.setup()
-
-        print(self, self.ctx, self.loop)
-
         self.loop.start()
+
+    def stop(self):
+        self.loop.stop()
+        self.ctx.destroy()
 
 
 """
@@ -181,4 +181,3 @@ class ZMQAddress(object):
     BOX_DISCOVERY_PUB = "ipc:///tmp/box-discovery-pub.ipc"
     RAW_REPO_SUB = "ipc:///tmp/raw-repo-sub.ipc"
     EVT_SVC_SUB = "ipc:///tmp/evt-svc-sub.ipc"
-    EVT_SVC_PUB = "tcp://*:9001"
