@@ -54,10 +54,8 @@ def FindValidPackets(buffer, header, length=None, lengthIndex=None,
     bufferLength = len(buffer)
 
     checkedPacketList = list()
-    headerIndexList = list()
     remainedPacket = bytes()
 
-    foundLength = 0
     headerIndex = 0
     while True:
         # Locate the first header in buffer
@@ -84,9 +82,10 @@ def FindValidPackets(buffer, header, length=None, lengthIndex=None,
             if (bufferLength - headerIndex) < (lengthIndex + 1):
                 remainedPacket += buffer[headerIndex:]
                 break
+            # remained buffer is shorter the the length idicated by the lengthIndex
             if (bufferLength - headerIndex) < (buffer[headerIndex+lengthIndex]+lengthOffset):
-                remainedPacket += buffer[headerIndex:]
-                break
+                headerIndex += 1
+                continue
             foundLength = buffer[headerIndex+lengthIndex]+lengthOffset
         # Check the checksum
         if ChksumIncludeHeader:
@@ -99,7 +98,6 @@ def FindValidPackets(buffer, header, length=None, lengthIndex=None,
                 continue
         # Pass every examination
         checkedPacketList.append(buffer[headerIndex:headerIndex+foundLength])
-        headerIndexList.append(headerIndex)
         headerIndex += foundLength
     
     return (checkedPacketList, remainedPacket)
